@@ -203,3 +203,19 @@ middlewares in series.
   * PgBouncer forwards request to a PgPool for that cluster
   * PgPool forwards Request to the PostreSQL server (master or slave)
   * PostgreSQL responds to the request
+
+## Repmgr
+
+Repmgr sets up your custer replication and provides a daemon that monitors the nodes 
+in your cluster for failure. 
+
+First, you create replicated nodes from your original master. It copies
+the underlying files from that server to another, which is run as a
+slave. You designate the master and standby (or slave) nodes.
+
+On failure, it can promote a slave to be the next master, takes the old
+master out of the cluster until it can be repaired, and tells the other
+slaves to follow the newly promoted master node.
+
+You can reprovision a new (or old master) node to and introduce it to
+the cluster.
