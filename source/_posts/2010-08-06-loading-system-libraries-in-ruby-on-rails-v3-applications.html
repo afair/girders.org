@@ -1,0 +1,8 @@
+--- 
+layout: post
+title: Loading system libraries in Ruby on Rails (v3) Applications
+published: true
+---
+<p>I just discovered this little surprise working with an app on Rails 3.0.0.rc. I have a class<p /> </p>
+<blockquote><tt># app/models/account.rb<br /> require 'Resolv'<br /> class Account<br /> &nbsp; def verify_email<br /> &nbsp;&nbsp;&nbsp;&nbsp; mx = Resolv::DNS.open { |dns| dns.getresources(domain, Resolv::DNS::Resource::IN::MX) }<br /> &nbsp; end<br /> end</tt><br /></blockquote>
+<p>This would work fine. The first time only. After that, it though an exception<p />  &nbsp; <tt><strong>NameError: uninitialized constant Account::Resolv<br /> </strong></tt><br /> <strong><em>Huh?</em></strong><p />  Running in the development environment, every time the web server reloads the class, or after the <tt>reload!</tt> command, it would remove the symbol and not require the library again. Or something like that.<p />  <strong>What should you do? </strong><p />  Do not use the <tt>require</tt> statements in your rails class files. I moved all my require statements at the top of my <tt>config/application.rb</tt> file and all was better!</p>

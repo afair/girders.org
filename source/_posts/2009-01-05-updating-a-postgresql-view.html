@@ -1,0 +1,21 @@
+--- 
+layout: post
+title: Updating a PostgreSQL view
+published: true
+---
+<p>In PostgreSQL (8.2), we can create a view to access a join of two tables.</p>
+<blockquote class="posterous_short_quote">create view join_view as SELECT p.id, p.group, c.parent_id, c.status FROM child c JOIN parent p ON c.parent_id = p.id&#160;;<br />
+</blockquote>
+<p>Now we can do</p>
+<blockquote class="posterous_short_quote">select * from join_view where group = 1;<br />
+</blockquote>
+<p>However, if we try to update the view, we can not.</p>
+<blockquote class="posterous_short_quote">update join_view set status=4 where group=1;<br />ERROR:  cannot update a view<br />HINT:  You need an unconditional ON UPDATE DO INSTEAD rule.</blockquote>
+<p>So we need to create this rule to execute this trigger-like command</p>
+<blockquote class="posterous_short_quote">create rule join_view_update as on update to join_view do instead (update child set status=NEW.status where id=NEW.id and parent_id=NEW.parent_id );<br />
+</blockquote>
+<p>Now we can execute the update!</p>
+<blockquote class="posterous_short_quote">update join_view set status=4 where group=1;<br />UPDATE 1<br />select * from join_view where group = 1;<br />
+</blockquote>
+<p>And see the results!</p>
+<p>Note: I changed internal conditions and naming, and hope I have no inadvertently mis-typed something. Apologies in advance if this had a simple syntax error.</p>

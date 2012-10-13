@@ -1,0 +1,116 @@
+--- 
+layout: post
+title: "Merb 0.9 on Ubuntu Linux 7.10 "
+published: true
+---
+<p>The <a href="http://merbivore.com/">Merb</a> application framework is getting close to a 1.0 release. Merb takes many of the ideas of Ruby on Rails and does them one better. RoR was designed for developers and applications, but has not been the best to run in production. Merb was written from the ground up with performance and scalability. But as a result, its like travelling abroad in that things are similar but not exactly the same as you are used to developing with RoR.</p>
+<p>The platform of choice of most rubyists these days is OS X, with its fine unixy-goodness and groovy Textmate editor. Ubuntu Linux provides most of these features for a fraction of the price! Also, since these applications are generally deployed on the Linux OS, it makes sense to know how to get things running on that platform as well. Let’s roll up our sleeves and get to work.</p>
+<p>I used <a href="http://blog.kineticweb.com/articles/2008/02/09/soar-with-merb-core-and-merb-more-0-9">Justin’s post</a> as a starting point on what to do. Open up a terminal window and start.</p>
+<h2>Get the Git</h2>
+<p>First, we install the <a href="http://git.or.cz/">git</a> version control system which merb uses. Note the current Debian git package has a minor bug requiring the /etc/mailname file. Create that file with your hostname in it for now.</p>
+<div class="CodeRay">
+  <div class="code"><pre>sudo apt-get install git-corevi /etc/mailname</pre></div>
+</div>
+
+<h2>Gems</h2>
+<p>I assume you have been using Ruby before and have a modern Ruby and RubyGems installed. If not, go do that now. I’ll wait.</p>
+<p>Justin recommends having these gems. All seem a good idea, but mongrel erubus and rspec seem more necessary if you are trying to cut down. Merb requires rack, and a ORM like Rails’ ActiveRecord, Sequel, or Datamapper, which it looks like it prefers. Merb is built upon the Rack web server abstraction library.</p>
+<p>Like Merb, <a href="http://datamapper.org/">Datamapper</a> is thread-safe to allow multiple requests being handled. However, it is not yet fully developed like ActiveRecord and may not be as production-ready. If you are porting an application from Rails, you may want to continue using ActiveRecord.</p>
+<div class="CodeRay">
+  <div class="code"><pre>sudo gem install mongrel json json_pure erubis mime-types rspec hpricot mocha rubigen haml markaby mailfactory Ruby2Ruby -ysudo gem install racksudo gem install datamapper -y</pre></div>
+</div>
+
+<h2>Install Merb</h2>
+<p>Merb is available in gem form, but they may not be as up to date as we would like. So let’s git them from the git repository. If you are having problems, try the http:// protocol instead of the git:// protocol. Merb in divided up into merb-core, merb-more, and merb-plugins in order to let you craft the server with just the parts you need. We need to go into each repository and “install” it in your gems.</p>
+<div class="CodeRay">
+  <div class="code"><pre>mkdir trymerbcd trymerbgit clone git://github.com/wycats/merb-core.gitgit clone git://github.com/wycats/merb-more.gitgit clone git://github.com/wycats/merb-plugins.gitcd merb-coresudo rake installcd ../merb-moresudo rake install# has link_to, etccd ../merge-assets sudo rake installcd ../../merb-plugins/merb_helpers/sudo rake installcd ../merb_activerecord/sudo rake installcd ../merb_datamapper/sudo rake installcd ../merb_rspec/sudo rake install</pre></div>
+</div>
+
+<p>Whew! That’s going to get old fast. The upcoming gems will be better.</p>
+<h2>Merb with PostgreSQL</h2>
+<p>PostgreSQL is my RDBMS of choice. MySQL would work similarly. Ubuntu needs your PostgreSQL header files, so we load them first.</p>
+<div class="CodeRay">
+  <div class="code"><pre>sudo apt-get install libpq-devsudo gem install do_postgres</pre></div>
+</div>
+
+<p>Now let’s go roll an app!</p>
+<h2>The MyBlog Merb Application</h2>
+<p>To show off our merby goodness, we will build the “hello world” of ruby web applications, the blog.</p>
+<div class="CodeRay">
+  <div class="code"><pre>cd trymerbmerb-gen myblogcd myblogcreatedb myblog_development</pre></div>
+</div>
+
+<p>The createdb command is for postgresql, please substitute the create database for your db of choice.</p>
+Edit config/init.rb file and enable the following configurations.
+<div class="CodeRay">
+  <div class="code"><pre>### Uncomment for DataMapper ORM  use_orm :datamapper  use_test :rspec  ### Add your other dependencies here  dependencies &quot;merb_helpers&quot;, &quot;merb-assets&quot;</pre></div>
+</div>
+
+Now create your /config/database.yml
+<div class="CodeRay">
+  <div class="code"><pre>---  # This is a sample database file for the DataMapper ORM  :development: &amp;defaults    :adapter: postgresql    :database: myblog_development    :username: the_user    :password: secrets    :host: localhost  :test:    &lt;&lt;: *defaults    :database: myblog_test  :production:    &lt;&lt;: *defaults    :database: myblog_production</pre></div>
+</div>
+
+<h3>Merbful Authentication</h3>
+<p>Optionally, we add in authentication, the “Restful Authentication” plugin port to merb. Read me about <a href="http://hassox.blogspot.com/search?q=merbful_authentication">here</a></p>
+<div class="CodeRay">
+  <div class="code"><pre>cd trymerbgit clone git://github.com/hassox/restful-authentication.gitcd restful-authenticationgit checkout -b merbful_authentication origin/merbful_authenticationsudo rake installcd trymerb/myblogmerb-gen authenticated user_model session_controller</pre></div>
+</div>
+
+<h3>Our post resource</h3>
+Restful merb resource that is. This creates the controller, model, and view. If you are using ActiveRecord, I would also expect a migration. For Datamapper, the columns are defined in the model. Use rake to create the tables from the model. (For Postgres, use the datetime type instead of the timestamp type you would use in Rails.)
+<div class="CodeRay">
+  <div class="code"><pre>merb-gen resource post title:string content:text created_at:datetimerake dm:db:automigrate</pre></div>
+</div>
+
+Edit config/router.rb to enable these actions:
+<div class="CodeRay">
+  <div class="code"><pre># RESTful routes  r.resources :posts # Change this for your home page to be available at /  r.match('/').to(:controller =&gt; 'posts', :action =&gt;'index')</pre></div>
+</div>
+
+<h3>Starting Merb</h3>
+Open a new terminal window and start merb from your app directory
+<div class="CodeRay">
+  <div class="code"><pre>cd trymerb/myblogmerb</pre></div>
+</div>
+
+Now point your brower to <a href="http://localhost:4000/">http://localhost:4000/</a> and you should be able to see it. The resource generator does not yet build the ERB files out like Rails’ scaffolding. So we have to write that ourselves.
+<p>Note that this is where some of the differences between Rails and Merb shows up. Merb has its own routing using the url() helper. Read more about it <a href="http://toolmantim.com/article/2008/1/22/merb_routing_in_0_5">here</a> .</p>
+<div class="CodeRay">
+  <div class="code"><pre>url(:posts)       #=&gt; &quot;/posts&quot; url(:new_post) #=&gt; &quot;/posts/new&quot; @post = Post[1]url(:post, @post) #=&gt; &quot;/posts/1&quot;</pre></div>
+</div>
+
+Edit the app/views/posts/index.html.erb and add in a simple post listing.
+<div class="CodeRay">
+  <div class="code"><pre>&lt;h1&gt;My Blog&lt;/h1&gt;&lt;% @posts.each do |n| %&gt;  &lt;h2&gt;&lt;%= n.title %&gt;&lt;/h2&gt;  &lt;div2&gt;&lt;%= n.content %&gt;&lt;/div&gt;&lt;% end %&gt;&lt;div&gt;  &lt;%= link_to &quot;Write new&quot;, url(:new_post) %&gt;&lt;/div&gt;</pre></div>
+</div>
+
+<p>Edit the app/views/posts/new.html.erb and add in the compose form. Feel free to embellish your HTML. I added the hidden field to remember how to do it if I need to figure it out again.</p>
+<p>As you see, the field control helpers are different, but self-explanatory. They were actually the hardest part to figure out since they needed to be installed from the proper repository and enabled in the init.rb file. The source code also shows more of what you need to do.</p>
+<div class="CodeRay">
+  <div class="code"><pre>&lt;h1&gt;Write a new post&lt;/h1&gt;&lt;%= error_messages_for :post %&gt;&lt;% form_for(@post, :action=&gt;url(:posts), :method=&gt;&quot;post&quot;) do %&gt;  &lt;%= hidden_field :name=&gt;:wave, :value=&gt;'hello' %&gt;  &lt;%= text_control :title, :label=&gt;&quot;Title&quot;, :size=&gt;50,     :maxlength=&gt;250, :style=&gt;&quot;font-weight:bold;&quot; %&gt;  &lt;br /&gt;&lt;%= text_area_control :content, :label=&gt;&quot;Rant&quot;, :rows=&gt;15, :cols=&gt;50 %&gt;  &lt;br /&gt;&lt;%= submit_button  &quot;Save&quot; %&gt;&lt;% end %&gt;</pre></div>
+</div>
+
+<p>That should do it! Enjoy your new merb blog app.</p>
+<h2>More Things with merb</h2>
+<h3>The Merb console</h3>
+The merb object has some things worth exploring, like the app object in Rails.
+<div class="CodeRay">
+  <div class="code"><pre>merb -iirb(main):001:0&gt; merb.show_routes</pre></div>
+</div>
+
+<h3>Debugger</h3>
+Like with Rails 2.0, call the “debugger” function where you want a breakpoint. and start merb like this:
+<div class="CodeRay">
+  <div class="code"><pre>merb -D</pre></div>
+</div>
+
+<h3>Merb on Thin</h3>
+You can run the <a href="http://code.macournoyer.com/thin/">Thin</a> web server with Merb.
+<div class="CodeRay">
+  <div class="code"><pre>sudo gem install thinmerb -a thin</pre></div>
+</div>
+
+<h2>Disclaimer</h2>
+<p>This was my first experiment using Merb on Ubuntu, and I am thrilled that it works so well already. This is not quite a recipe for starting from scratch. Some instructions may be convoluted, unnnecessary, copied here incorrectly, or just plain wrong.</p>
+<p>Merb is the exciting new direction for developing ruby applications. Ezra is addressing the shortcomings we have in developing and deploying robust applications in ruby. The Rubinius and Merb projects are doing a lot to make this happen.</p>

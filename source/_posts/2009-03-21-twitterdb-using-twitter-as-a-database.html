@@ -1,0 +1,17 @@
+--- 
+layout: post
+title: twitterdb - Using twitter as a database
+published: true
+---
+<p>I just had this crazy idea. If you already read the title, then you already know! ;-)</p>
+<p>Twitter is crazy cool. You can tweet as much as you want (I think) and can create gigabytes of useless personal trivia&#8230; or you can store somthing kinda cool in it&#8230; DATA! As a result, you can get a free Small-Document-Oriented database you can access from the cloud.</p>
+<p>Sure, this is nuts, but its fun to consider, right?</p>
+<p>First, each &#8220;table&#8221; is a twitter &#8220;account&#8221;, call it &#8220;app.table&#8221; or whatever. Each &#8220;tweet&#8221; to the table is a record. Ok, twitter posts can only be 140 characters&#8212;a limit I otherwise appreciate. We can store the record as any parsable key/value store.</p>
+<p>Perhaps we could use JSON:{&#8220;ircEvent&#8221;: &#8220;PRIVMSG&#8221;, &#8220;method&#8221;: &#8220;newURI&#8221;, &#8220;regex&#8221;: &#8220;^http://.*&#8221;}</p>
+<p>Or a Ruby Hash: {:key=&gt;&#8221;value&#8221;, &#8230;}</p>
+<p>Or Python Dictionary: {&#8216;jack&#8217;: 4098, &#8216;sape&#8217;: 4139}</p>
+<p>Insert the data by tweeting the record to the table. Now you are storing it. You can&#8217;t update it, only supercede a record.  How would we access it? Feeds, api, searches, and mashups.My twitter-fu on this isn&#8217;t so strong as I never had a need for it before.</p>
+<p>But still&#8230; could be interesting, right? And you could even SHARE data by posting it to public databases like this. For sanity, you would validate and post this through a gateway service of your own devising.</p>
+<p>I wonder now much this could be like CouchdB, SimpleDB, or the Google App Engine Datastore this is?</p>
+<p>Perhaps this could be work exploring. Maybe I could even write ActiveRecord (Ruby on Rails) bindings to emulate this. Someday.</p>
+<p>I&#8217;ll keep you posted&#8230;</p>

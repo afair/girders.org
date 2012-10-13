@@ -1,0 +1,135 @@
+--- 
+layout: post
+title: "PostgresNoSQL: The Hidden NoSQL in PostgreSQL"
+published: true
+---
+
+                
+                        <p>
+                            <p>Recently, <a href="http://en.wikipedia.org/wiki/NoSQL">NoSQL</a> data stores have been getting a lot of attention, as an alternative to using a <a href="http://en.wikipedia.org/wiki/Relational_model">relational</a> database. They allow more complex data structures to be stored and queried than you find in the table-row-column model.</p>
+
+<p>The <a href="https://postgresql.org">PostgreSQL</a> relational database server has several data features that you would expect to be found only in the NoSQL data stores.</p>
+
+<h2>Documents (Text Datatype)</h2>
+
+<p>While not a data structure itself, the &lsquo;text&rsquo; datatype is a &ldquo;clob&rdquo; (character large object) of an &ldquo;unlimited length&rdquo; and can be used to store documents. This can be useful for specialty formats like YAML, XML, JSON, and serialized data from programming languages. Some of these document types are supported as specialty data types; more on that later.</p>
+
+<p>PostgreSQL has <a href="http://www.postgresql.org/docs/9.0/static/functions-string.html">string functions and operators</a>
+and <a href="http://www.postgresql.org/docs/9.1/static/functions-matching.html">matching</a> operators including regular expressions and its &ldquo;similar to&rdquo; hybrid of the SQL &ldquo;like&rdquo; and regular expressions.</p>
+
+<p>The real power of PostgreSQL here is the <a href="http://www.postgresql.org/docs/9.1/static/textsearch-controls.html">full text search</a> (a successor to earlier Tsearch and Tsearch2 extentions) features to search these documents.
+Its full text search offers stemming (removing pluarizations and conjugations of a word) and weights to make searching your documents as easy as a search engine.</p>
+
+<p>The <a href="http://www.postgresql.org/docs/current/static/textsearch-indexes.html">GiST and GIN</a> index types are used to speed up full text searches by indexing the content as a standard search engine would. A GIN index is faster to search than a GiST index, but slower to build or update; so GIN is better suited for static data and GiST for often-updated data.</p>
+
+<h2>Arrays</h2>
+
+<p>A PostgreSQL column can be created as an <a href="http://www.postgresql.org/docs/current/static/arrays.html">array</a>
+of values, a table, or other variable-length multidimentional arrays. Append the [] brackets at the end of the datatype to define the column as an array of that datatype.</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>create table lists  (id serial primary key, items text[]);
+create table tables (id serial primary key, items text[][]);</pre></div>
+</div>
+
+
+<p>The array representation syntax can be either:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>'{1,2,&quot;Hello, there&quot;,word}'
+array[1,2,3]</pre></div>
+</div>
+
+
+<p>The first version, is how psql will print out the array and how it will be returned to your program, as a string of comma-separated values. PostgreSQL does support different delimiters. The second version may only contain integers.</p>
+
+<p>Access the elements of the array using the column_name[index] syntax. The first item in the array is at index 1, not 0. The split[start:end] syntax returns the array slice between the two given indexes, and is returned in the &lsquo;{start,middle,end}&rsquo; syntax.</p>
+
+<p>Also, PostgreSQL provides an <a href="http://www.postgresql.org/docs/9.1/interactive/intarray.html">intarray</a> module with functions and operator for working with arrays of non-null integers.</p>
+
+<p>To increase performance for lookup of array values, create a GIN/GiST index on the array column</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>create index lists_index on lists using gin (items);</pre></div>
+</div>
+
+
+<h2>Name-Value Pairs</h2>
+
+<p>The <a href="http://www.postgresql.org/docs/9.1/static/hstore.html">hstore</a> datatype provides a column defined as a set of name-value pairs. This feature is not in core PostgreSQL, but is delivered as an extenstion in the &ldquo;contrib&rdquo; directory of the PostgreSQL distribution. The feature may already be compiled into your database, but may need to be enabled in the databases you need it.</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>create extension hstore;
+create table catalog (id serial, specifications hstore);</pre></div>
+</div>
+
+
+<p>NOTE: If you wish to have the hstore installed in all future databases you create, install it into the &ldquo;template1&rdquo; database.</p>
+
+<p>The syntax for specifying the dictionary is like this:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>'cores=&gt;1, &quot;graphics card=&gt;&quot;xyz graphics&quot;'</pre></div>
+</div>
+
+
+<p>So note that double-quotes have to be used for non-simple names and values, or when the contain special characters. Access done as follows:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>select specifications-&gt;'graphics card' from catalog where specifications-&gt;['cores']=1;</pre></div>
+</div>
+
+
+<p>To insert/replace or delete a key:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>UPDATE tab SET h = h || ('c' =&gt; '3');
+UPDATE tab SET h = delete(h, 'k1');</pre></div>
+</div>
+
+
+<p>To increase performance for lookup of names or values, create a GIN/GiST index on the array column</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>create index catalog_specifications on catalog using gin (specifications);</pre></div>
+</div>
+
+
+<h2>XML</h2>
+
+<p>PostgreSQL comes with a specialized datatype for <a href="http://www.postgresql.org/docs/9.1/static/datatype-xml.html">XML</a> documents, including <a href="http://www.postgresql.org/docs/9.1/static/functions-xml.html">functions</a> to parse, alter, and traverse the structure of the document.</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>CREATE TABLE test (a xml, b xml);
+SELECT xmlelement(name test, xmlattributes(a, b)) FROM test;
+SELECT xpath('/my:a/text()', 'test',
+         ARRAY[ARRAY['my', 'http://example.com']]);</pre></div>
+</div>
+
+
+<h2>JSON</h2>
+
+<p>Soon, PostgreSQL will release a JSON datatype to handle JSON documents as it handles XML. There has been work done through a Google Summer of Code project in 2010, but the PostgreSQL team needs more time to merge it into the distribution.</p>
+
+<h2>Custom Data Types</h2>
+
+<p>PostgreSQL can be extended to handle new <a href="http://www.postgresql.org/docs/9.1/static/xtypes.html">user-defined datatypes</a> that can handle new types of data. Existing specialty type include:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>* inet - Holds an IPv4 or IPv6 internet address with CIDR functions and operators
+* money - hold curreny amounts with a fixed precision
+* enum - holds a static, ordered set of values
+* PostGIS - holds positions of geographic information systems</pre></div>
+</div>
+
+
+<h2>Caveats</h2>
+
+<p>With all these wonderful types, you still get the <a href="http://en.wikipedia.org/wiki/ACID">ACID</a> complienace you expect from a relational database.</p>
+
+<p>However the downside is that the datastructures are updated as an entire column and row in your table. It does not treat each element in the data structure atomically. As a result, the database is not appropriate to hold very large data structures where you intend to do frequent updates.</p>
+
+<p>These extenstions are best used as a tool to encode and access more specific information in your row, rather than as a Data struture store like Redis and Riak, or document store like CouchDB or MongoDB.</p>
+                        </p>
+
+                                    

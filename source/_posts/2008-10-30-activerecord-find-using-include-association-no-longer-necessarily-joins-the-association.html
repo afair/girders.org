@@ -1,0 +1,21 @@
+--- 
+layout: post
+title: ActiveRecord#find using :include=>association no longer necessarily joins the association
+published: true
+---
+Before Rails 2.1, adding an :include=&gt;[:association] in your find method caused ActiveRecord to generate SQL using a join. Since 2.1, it MAY NOT execute as a join.
+<p>The join executes a large query and returned potentially duplicate records for a one-to-many association. After 2.1, the query is broken down and eager-loaded using an additional query per association, passing the set of id‘s to load, and avoiding the duplicate rows.</p>
+<p>The new method eliminates duplicates, but can incur more database overhead. If you are loading a very large set of records (more than a &#8220;page&#8221;), you may need to &#8220;force&#8221; the join or use find_by_sql instead.</p>
+<p>When you specify a &#8220;table.column&#8221; syntax within a</p>
+<div class="CodeRay">
+  <div class="code"><pre>:conditions=&gt;[&quot;child.name=?&quot;, name]</pre></div>
+</div>
+
+<p>or</p>
+<div class="CodeRay">
+  <div class="code"><pre>:order=&gt;'child.name'</pre></div>
+</div>
+
+<p>then ActiveRecord will build the older, full query with the join because you are referencing columns from another table to build. This will cause the duplicate rows to reappear.</p>
+<p>Whenever you reference a column from another table in a condition or order clause, ALWAYS use the table name to prefix the column, even if it not ambiguous among the tables involved. Otherwise the query will not be executed as a join and you will receive an SQL error referencing the &#8220;missing&#8221; column.</p>
+<p>You can &#8220;force&#8221; a join by adding a reference to the other tables in your :conditions or :options parameters, even if the test or sort is irrelevant.</p>
