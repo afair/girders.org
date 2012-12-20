@@ -4,5 +4,14 @@
   <li><a href="{{ root_url }}/blog/archives">Archives</a></li>
   <li><a href="http://github.com/afair">Code</a></li>
   <li><a href="/about">About</a></li>
-  <li><a href="mailto:CURRENTYEAR@allenfair.com">Email</a></li>
+  <li>
+    <script type="text/javascript" charset="utf-8">
+      d = new Date();
+      y = d.getFullYear();
+      document.write("<a href='mailto:"+y+"@allenfair.com'>Email</a>");
+    </script>
+    <noscript>
+      <a href="mailto:CURRENTYEAR@allenfair.com">Email</a>
+    </noscript>
+  </li>
 </ul>
