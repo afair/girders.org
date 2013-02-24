@@ -12,7 +12,7 @@ need to build out a robust database system. This guide offers a high-level
 description of tools used to build a high-availability, scalable,
 fault-tolerant service.*
 
-These tools are explained
+These tools are explained:
 
   * [PostgreSQL](http://www.postgresql.org/) Database with
     [Streaming Replication](http://wiki.postgresql.org/wiki/Streaming_Replication)
@@ -21,10 +21,31 @@ These tools are explained
   * [Repmgr](http://www.repmgr.org/) - Replication Manager for
     PostgreSQL Clusters
 
-Pgpool, the hardest to grasp, can be configured to perform connection
-pooling and management, simple replication, load balancing, and parallel
-query processing.
+## PostgreSQL Clusters
 
+A fault-tolerant system does not just deploy a single PostgreSQL server,
+rather an PostgresSQL cluster is deployed.
+
+A PostgreSQL Cluster consists of a master PostgreSQL server, and one or
+more replication slaves. Writes are send to the master, and all slave
+servers are available to serve read requests. If the master fails, one
+slave can be promoted to be the new master.
+
+Software like Pgpool can be deployed to take advantage of the cluster: 
+
+  * sending writes (create, update, delete) to the master 
+  * load balancing read operations across all servers
+  * detecting a failure of any cluster.  
+
+When you deploy your cluster, should provision as many slaves as can
+handle the load should a server go off-line, a "n+1" scenario. When
+you lose a server, you need enough capacity to handle the load with
+the remaining servers.
+
+The master sends the WAL to each slave over the network. The
+slaves apply the WAL feed to stay current, and in a "hot standby" state,
+should the master fail. The slaves can't perform any updates of the own,
+but can serve read-only queries to its clients.
 
 ## Replication
 
@@ -68,32 +89,14 @@ Under SR, the master database feeds your slave database(s) a live stream of
 changes from the Write Ahead Log (WAL). The slaves apply this data and
 stay "up to date" within a reasonable latency.
 
-## PostgreSQL Clusters
-
-A fault-tolerant system does not just deploy a single PostgreSQL server,
-rather an PostgresSQL cluster is deployed.
-
-A PostgreSQL Cluster consists of a master PostgreSQL server, one or
-more replication slaves, and some middleware like Pgpool, to take full
-advantage of the cluster. You can use any form of replication that
-supports a failover and load balancing features. The built-in SR does
-this perfectly.
-
-When you deploy your cluster, should provision as many slaves as can
-handle the load should a server go off-line, a "n+1" scenario. When
-you lose a server, you need enough capacity to handle the load with
-the remaining servers.
-
-A single server is identified as the master, and the others are the
-slaves. The master sends the WAL to each slave over the network. The
-slaves apply the WAL feed to stay current, and in a "hot standby" state,
-should the master fail. The slaves can't perform any updates of the own,
-but can serve read-only queries to its clients.
-
-To utilize the cluster, you need load balancing middleware such as
-Pgpool to perform load balancing and failover.
+Read more about setting up replication on the PostgreSQL 
+[Streaming Replication](http://wiki.postgresql.org/wiki/Streaming_Replication) wiki page.
 
 ## PgPool-II
+
+Pgpool, the hardest to grasp. It can  be configured to perform connection
+pooling and management, simple replication, load balancing, and parallel
+query processing.
 
 Pgpool is a middleware database utility that can perform several
 functions, including:
@@ -106,9 +109,10 @@ functions, including:
 
 [Middleware](http://en.wikipedia.org/wiki/Middleware)
 is software siting between the PostgreSQL client and
-server, speaking the PostreSQL server API to the clients, and
+server. It mimics the PostreSQL server API to the clients, and
 speaks the client API to the actual server, thus adding a level of
-intelligence in the middle of the call chain.
+intelligence in the middle of the call chain. Layers of services can be
+chained between the two endpoint, each providing a new feature.
 
 ### PgPool with PostgreSQL Clusters
 
@@ -189,7 +193,7 @@ ensures data is as up-to-date as you need.
 
 Pgpool can also be configured to detect a failure on the master
 postgresql in the cluster and take an action that can promote a slave to
-be the new master. After the point, it will forget the old master and
+be the new master. After that point, it will forget the old master and
 talk to the new master instead.
 
 This can be tricky to have pgpool make this decision itself. Perhaps you
@@ -208,6 +212,18 @@ When the client makes a data request, Pgpool inspects the query,
 looks up the home location of the record, and forwards the request to
 that server.
 
+#### Configuring for use in a cluster
+
+The [Pgpool-II User Manual](http://www.pgpool.net/docs/latest/pgpool-en.html)
+contains details of setting up Pgpool for use with a cluster. You will 
+need to set up:
+
+  * Connection Pooling mode (optional)
+  * Streaming Replication
+  * Master/Slave mode
+  * Load balancing with streaming replication
+  * Failover with Streaming Replication
+
 ## PgBouncer
 
 PgBouncer is an alternative connection pooling (again, caching)
@@ -215,7 +231,7 @@ middleware to Pgpool. It is smaller in footprint and only does pooling,
 so it conserves resources and can be more efficient. 
 It can cache connections to different databases, servers, or clusters (with Pgpool). 
 
-In PgBouncer, you configure the pgbouncer as a postgresql connector. It
+In PgBouncer, you configure pgbouncer as a postgresql connector. It
 maps the dbnames you connect to locally into real databases that can
 live on multiple hosts thoughout your system.
 
@@ -241,9 +257,49 @@ middlewares in series.
   * PgPool forwards Request to the PostreSQL server (master or slave)
   * PostgreSQL responds to the request
 
+## Pgpool vs. PgBouncer
+
+Sometimes, a full-blown, streaming replication service isn't what you
+need. A good question is "Which shall I deploy with PostgreSQL?"
+
+##### Use connection pooling if:
+
+  * You want to eliminate the overhead of creating and tearing down new
+    connections, particularly over a network interface. If that is all
+    new need, PgBouncer is a better choice.
+  * You have a lot of short-lived application runs that open/run/close
+    the connections.
+
+##### Use PgBouncer if:
+
+  * You only need connection pooling.
+  * Your resources are constrained. Pgbouncer does not fork a new
+    process (it is event-based).
+  * You want to connect to a PostgreSQL cluster, but also other
+    PostgreSQL servers or clusters
+  * You want to move database connection credential from the application
+    configuration into the middleware
+  * Allow you to move databases around more transparently without
+    changing every application configuration
+  * You want to query it for statistics instrumentation.
+
+##### Use Pgpool if:
+
+  * you want to leverage your cluster for load balancing and failover
+  * you want Pgpool's replication or parallel query features
+  * you still need connection pooling on top of this.
+
+##### Use both if:
+
+  * You have clusters deployed, but also want to control multi-db access
+  * Have lots of connections to pool (use PgBouncer for less resource
+    usage) and want to connect to a Pgpool-facing cluster.
+
+
 ## Repmgr
 
-Repmgr sets up your cluster replication and provides a daemon that monitors the nodes 
+[Repmgr](http://www.repmgr.org/)
+ sets up your cluster replication and provides a daemon that monitors the nodes 
 in your cluster for failure. 
 
 First, you create replicated nodes from your original master. It copies
