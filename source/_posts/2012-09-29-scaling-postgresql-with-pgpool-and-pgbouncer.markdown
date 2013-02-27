@@ -21,6 +21,8 @@ These tools are explained:
   * [Repmgr](http://www.repmgr.org/) - Replication Manager for
     PostgreSQL Clusters
 
+<!--more-->
+
 ## PostgreSQL Clusters
 
 A fault-tolerant system does not just deploy a single PostgreSQL server,

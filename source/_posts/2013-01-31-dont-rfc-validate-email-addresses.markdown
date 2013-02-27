@@ -14,6 +14,8 @@ usability to be admired.
 
 Wrong.
 
+<!--more-->
+
 It sounds like a reasonable thing to want, and it should be. The problem
 is that there is nothing reasonable about email address formats.  In fact,
 adhering to RFC specifications for email addresses may not help, and

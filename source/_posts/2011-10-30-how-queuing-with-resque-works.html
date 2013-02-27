@@ -7,6 +7,8 @@ published: true
 
 <p><a href="https://github.com/defunkt/resque">Resque</a> is a fast, lightweight, and powerful message queuing system used to run Ruby jobs asynchronously (or in the background) from your on-line software for scalability and response. I needed to integrate software written in different languages and environments for processing, and this is my understanding of the implementation.</p>
 
+<!--more-->
+
 <h2>How Queuing with Redis works</h2>
 
 <p>Resque&rsquo;s real power comes with the <a href="http://redis.io/">Redis</a> &ldquo;NoSQL&rdquo; Key-Value store. While most other Key-Value stores use strings as keys and values, Redis can use hashes, lists, set, and sorted sets as values, and operate on them atomically. Resque leans on the Redis list datatype, with each queue name as a key, and a list as the value.</p>
