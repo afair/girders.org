@@ -20,6 +20,8 @@ There are some parts of it that are just darn incomprehensible unless
 you understand the internals, so it becomes hard to guess where to look
 to find your answers.
 
+<!--more-->
+
 The .gitconfig file allows you to customize git, adding default flags,
 abbreviations, etc., to help you build up your work flow. 
 
