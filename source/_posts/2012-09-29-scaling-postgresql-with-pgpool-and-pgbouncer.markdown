@@ -182,6 +182,12 @@ backend_host0) and and slaves (backend_host1..n), then enable
 load balancing. You must also list any functions you use that will back
 data changes, to pgpool can identify write requests and read requests.
 
+Database triggers, stored procedures that execute automatically when an
+insert, update, or delete operation to a given table, execute only on the
+master. Those changed are streamed down to the slaves; the slaves do not
+run any triggers themselves, only apply any trigger changes from
+upstream.
+
 For streaming replication, postgresql will send all write requests to
 the master server. (For simple replication, it would send them to all
 servers.)
