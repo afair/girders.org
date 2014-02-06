@@ -140,7 +140,26 @@ guard :rspec, cmd:"spring rspec" do
 
 (Running with binstubs, shell extensions, alias, etc. may make executing
 these commands different on your system. You may need to `bundle exec
-rails` or `bin/rails` or however your environment is setup.)
+rails` or `bin/rails`, or however your environment is setup.)
+
+Check out the time gains running rspec through spring, I'll use the time
+command:
+
+```
+% time spring rspec
+...
+spring rspec  0.12s user 0.07s system 6% cpu 3.126 total
+
+% time spring rspec
+...
+spring rspec  0.12s user 0.06s system 30% cpu 0.600 total
+```
+
+This is on a minimal app with a single, scaffolded resource. As your app
+grows larger, the initial startup time will be longer, and your time
+savings will multiply accordingly.  (Of course, you can just run the 
+`spring rspec` command if you are more
+interested in the results rather than the timings.)
 
 To start TDD'ing, fire up guard in a terminal session.
 
