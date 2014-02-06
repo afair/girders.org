@@ -40,7 +40,7 @@ connect to information on this nascent Wold-Wide Web. I found a free
 to access this Internet and I explored all there was, the CIA website,
 gopher, FTP, and the Usenet. 
 
-After having moved to NYC in 1997, I took a job working at
+After moving to NYC in 1997, I took a job working at
 [theglobe.com](https://www.google.com/search?q=theglobe.com+ipo), 
 an early community website offering chat, forums, email,
 clubs, and news feeds. It was a great group of people, I learned a lot
