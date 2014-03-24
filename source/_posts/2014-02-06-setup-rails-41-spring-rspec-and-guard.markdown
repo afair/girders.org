@@ -174,3 +174,8 @@ To start TDD'ing, fire up guard in a terminal session.
 This runs `guard` to watch your app files and kicks off the `spring
 rspec` command to run your changed spec file or suite.
 
+If you need to change something basic in your app, such as adding a gem,
+updating a local dependency that could be cached, you need to restart
+both guard (Ctrl-D at the console) (or a server or console process), 
+and spring (`spring stop`). Restarting
+`guard` will restart spring as well, with your dependencies reloaded.
