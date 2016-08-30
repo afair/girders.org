@@ -385,7 +385,10 @@ There are several authorization techniques, but API's usually use an
 "API Key" for access, usually a 32-character hexadecimal string,
 probably from a randomly generated UUID, like
 `SecureRandom.uuid.gsub("-","")`. We'll add an api\_key column of type
-UUID to the users table and assign the key at create time.
+UUID to the users table and assign the key at create time. (Note: This
+is not secure, it is the same as putting clear-text passwords in your
+database, but I know you know better. Check out
+[devise_token_auth](https://github.com/lynndylanhurley/devise_token_auth).)
 Token-based access like this needs the HTTP Authorization header such as:
 
     Authorization: Token token="2253b04477254110b3ea30997b71a38a"
