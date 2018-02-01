@@ -1,0 +1,47 @@
+--- 
+layout: post
+title: Install Ubuntu 9.04 Virtual Server With Passenger and Rails Application
+published: true
+author: Allen Fair
+header-img: images/transfer.jpg
+---
+<p>Install Ubuntu 9.04 Virtual Server With Passenger and Rails Application<p />There have been a few post and code I referenced to set up my server. See gist <script src="https://gist.github.com/111244.js"></script> for a raw install script, which you must adapt to your needs.<p />I’ll assume we are started from a post-install state of the Server, with the proper networking, etc. in good working order. Here are the basic command line I entered.<p />First, let’s get the system up to date</p>
+<blockquote class="posterous_short_quote">sudo ntpdate ntp.ubuntu.com<br />sudo apt-get update<br />sudo apt-get upgrade<br />sudo ssh-keygen<br />
+</blockquote>
+<p>Now to install the basic needs for the server</p>
+<blockquote class="posterous_short_quote">sudo apt-get -y install git-core openssh-server openssh-client build-essential \ <br /> wget ntp-simple<br />
+</blockquote>
+<p><br />This sets up the MRI 1.8.7 Ruby interpreter. I think you can skip this step if you want to run the Phusion Ruby Enterprise Edition instead (see next).</p>
+<blockquote class="posterous_short_quote">sudo apt-get -y install ruby rdoc irb libyaml-ruby libzlib-ruby ri libopenssl-ruby \ <br /> ruby1.8-dev libopenssl-ruby<br />
+</blockquote>
+<p>Install Phusion Ruby Enterprise Edition. Check that page for the current version. This installs executables into /opt/ruby-enterprise/bin, so you should either add that to your path or link those command into your path. I did the link, and since Ubuntu ruby installs into /usr/bin, and my default PATH puts /usr/local/bin before that, I simply created links for each command into that directory. This may not be the best way, but this was a proof of concept run.</p>
+<blockquote>wget <a href="http://rubyforge.org/frs/download.php/55510/ruby-enterprise_1.8.6-20090421_i386.deb">http://rubyforge.org/frs/download.php/55510/ruby-enterprise_1.8.6-20090421_i386.deb</a><br />sudo dpkg ruby-enterprise_1.8.6-20090421_i386.deb<br />rm ruby-enterprise_1.8.6-20090421_i386.deb<br />sudo ln -s /opt/ruby-enterprise/bin/* /usr/local/bin/<br />
+</blockquote>
+<p>Next, we need to install Ruby Gems, the heart of ruby library package management. You can install via the ubuntu ‘apt-get install rubygems’, but the version you install doesn’t like to upgrade itself. It is best to do it from the rubygems distrubution package. Download the current release from the rubygems download page. Since a lot of gems are released though github these days, add that source to the gems sources.</p>
+<blockquote>wget “http://rubyforge.org/frs/download.php/45905/rubygems-1.3.1.tgz”<br /> tar -xvzf rubygems-1.3.1.tgz<br /> rm rubygems-1.3.1.tgz<br /> cd rubygems-1.3.1<br /> sudo ruby setup.rb<br /> cd ..<br /> rm -r rubygems-1.3.1<br /> sudo gem sources -a <a href="http://gems.github.com">http://gems.github.com</a><br />
+</blockquote>
+<p>Install PostgreSQL. Its my database of choice, fast, robust, friendly (…except for replication). Set it up to accept connections from this server. After that, create the user accounts you require of your applications. Consult <a href="https://help.ubuntu.com/9.04/serverguide/C/postgresql.html">https://help.ubuntu.com/9.04/serverguide/C/postgresql.html</a> for more details.</p>
+<blockquote class="posterous_medium_quote">sudo apt-get -y install postgresql libpq-dev<br /> sudo vi /etc/postgresql/8.3/main/postgresql.conf<br /> enable this setting:<br /> listen_addresses = ‘localhost,127.0.0.1’”<br /> sudo vi /etc/postgresql/8.3/main/pg_hba.conf<br /> Change md5 to trust in line:<br /> host all all 127.0.0.1/32 trust<br /> sudo /etc/init.d/postgresql-8.3 restart<br /> sudo -u postgres psql template1<br /> ALTER USER postgres with encrypted password ‘your_password’;<br /> create user appuser createdb createuser;<br />
+</blockquote>
+<p>Alternatively, you can run MySQL. It’s also a nice database. You may want to verify this elsewhere to get everything up and running.</p>
+<blockquote class="posterous_short_quote">sudo apt-get install mysql-server mysql-client<br /> sudo apt-get install libmysql-ruby libmysqlclient15-dev<br /> sudo gem install mysql —no-rdoc —no-ri<br />
+</blockquote>
+<p>Now to install the Apache2 web server and the Phusion Passenger (modrails) module. It instructs you to add some apache configurations, but this location is slightly different. Verify the passenger version numbering if using the “echo” command below.</p>
+<blockquote class="posterous_medium_quote">sudo apt-get -y install apache2-mpm-prefork libapr1-dev apache2-prefork-dev<br /> sudo gem install passenger —no-rdoc —no-ri<br /> sudo /opt/ruby-enterprise/bin/passenger-install-apache2-module<br /> sudo echo “LoadModule passenger_module /usr/lib/ruby/gems/1.8/gems/passenger-2.2.1/ext/apache2/mod_passenger.so<br /> PassengerRoot /usr/lib/ruby/gems/1.8/gems/passenger-2.2.1<br /> PassengerRuby /usr/bin/ruby1.8” &gt; /etc/apache2/mods-available/passenger.load<br /> sudo a2enmod passenger<br /> sudo a2enmod ssl<br /> sudo a2enmod rewrite<br /> sudo /etc/init.d/apache2 force-reload<br />
+</blockquote>
+<p>Now we are on the road to deployment. Let’s install Rails and some other basic gems.</p>
+<blockquote class="posterous_medium_quote">sudo apt-get -y install libxml2 libxml2-dev<br /> sudo gem install rails rake rspec rspec-rails ruby-debug capistrano libxml-ruby \ fastercsv —no-rdoc —no-ri<br /> sudo gem install mislav-will_paginate —no-rdoc —no-ri<br />
+</blockquote>
+<p>Say we decide to host our app out of /var/app and set up up ready to go. I’m not sure about the chown command below, but saw it elsewhere and it didn’t hurt.</p>
+<blockquote class="posterous_medium_quote">sudo mkdir /var/app<br /> sudo chown allen:allen /var/app<br /> cd /var/app<br /> git clone git://github.com/account/appname.git<br /> sudo chown www-data:www-data /var/app/k23/config/environment.rb<br />
+</blockquote>
+<p>Chances are, you will deploy with a yummy capistrano or vlad recipe. That out out of the scope at this time, so we’ll create the database and test to make sure te connection is right. Play with your app and fix settings before going on..</p>
+<blockquote class="posterous_medium_quote">cd /var/app/appname<br /> cp config/database.yml.example config/database.yml<br /> rake db:create RAILS_ENV=production<br /> rake db:migrate RAILS_ENV=production<br /> script/console production<br />
+</blockquote>
+<p>Now we install the app through Passenger.</p>
+<blockquote class="posterous_medium_quote">sudo echo “&lt;VirtualHost *:80&gt;<br /> ServerName appname.com<br /> DocumentRoot /var/app/appname/public<br /> &lt;/VirtualHost&gt;”&#160;&#187; /etc/apache2/sites-available/appname.com<br /> sudo a2ensite appname.com<br /> sudo /etc/init.d/apache2 reload<br />
+</blockquote>
+<p>If we were successful, we should be able to load that site (assuming DNS is pointing here already).</p>
+<blockquote>Load <a href="http://appname.com">http://appname.com</a> on your workstation web browser.<br />
+</blockquote>
+<p>I hope this helped you as much as it did me. I apologize for errors that crept into this script while converting it to a blog entry.</p>

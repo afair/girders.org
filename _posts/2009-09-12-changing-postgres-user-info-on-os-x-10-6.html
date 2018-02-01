@@ -1,0 +1,21 @@
+--- 
+layout: post
+title: Changing postgres user info on OS X 10.6
+published: true
+author: Allen Fair
+header-img: images/transfer.jpg
+---
+<p>(How to change a service user account home directory in Apple OS X 10.6 Snow Leopard)</p>
+<p>I&#8217;m sure I did something differently than expected. After upgrading to Snow Leopard, my macports weren&#8217;t working. After installing the macports for snow leopard, it told me to do a `port upgrade outdated` but that didn&#8217;t work because of the variants. I added the &#8212;enforce-variants option but had other issues, I don&#8217;t recall which now. So I decided to just re-install the ports from scratch, and it worked very well. Until I tried to start postgres.</p>
+<p>The postgres user runs the database, and I had been using 8.3 under Leopard, and now using 8.4. Whenever I tried to initdb or do any postgres command, it complained that the home directory for the postgres user, the old 8.3 directory, was not found. Where was this setting, and how can I change it?</p>
+<p>My first stop was at ole /etc/passwd. A note at the top reminded me that it is unused except in single-user mode. The service is now provided by &#8220;Open Directory&#8221;. Oh joy, LDAP. There are no standard *NIX commands to add and modify the users, except on the Desktop GUI (what&#8217;s this called?), which wasn&#8217;t the answer. (Actually an old apple tutorial to install postgres says to create a log-in user to run your database instead of a system account.)</p>
+<p>A friend suggested something called &#8220;netinfo&#8221;. A little google-fu led me to this post</p>
+<blockquote><a href="http://forums.macosxhints.com/showthread.php?p=552033" title="http://forums.macosxhints.com/showthread.php?p=552033"><a href="http://forums.macosxhints.com/showthread.php?p=552033">http://forums.macosxhints.com/showthread.php?p=552033</a></a></blockquote>
+<p>which showed me some commands! The `dscl` (Directory Services Command Line) was the one I wanted. I read the man page and switched my brain into LDAP mode temporarily. Then I issued this command:</p>
+<blockquote><span>dscl localhost change /Local/Default/Users/postgres NFSHomeDirectory /opt/local/var/db/postgresql83 /opt/local/var/db/postgresql84</span></blockquote>
+<p>and then tried to be the postgres user</p>
+<blockquote class="posterous_short_quote">sudo -u postgres -i</blockquote>
+<p><span style="">A</span>nd no errors! Then I was able to initialize the database and start it</p>
+<blockquote class="posterous_medium_quote">sudo -u postgres /opt/local/lib/postgresql84/bin/initdb -D /opt/local/var/db/postgresql84/defaultdb -E UTF8<br />sudo -u postgres /opt/local/lib/postgresql84/bin/pg_ctl -D /opt/local/var/db/postgresql84/defaultdb start</blockquote>
+<p>I hope you find this post if you are in a similar situation, and it will help you resolve it.</p>
+<p>Meow!</p>

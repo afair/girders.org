@@ -1,0 +1,14 @@
+h1 {
+  color: #f4c430; /* Saffron */
+  letter-spacing: 0.1em;
+}
+
+.subheading {
+  letter-spacing: 0.2em;
+}
+
+pre.highlight {
+  background-color: #ddd;
+  border: 1px solid black;
+  padding: 10px;
+}

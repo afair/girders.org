@@ -1,0 +1,21 @@
+--- 
+layout: post
+title: Ruby YAML loads leading-zero numbers as Octal
+published: true
+author: Allen Fair
+header-img: images/transfer.jpg
+---
+<p>Watch out! I was innocently loading a YAML file in Ruby created by another system</p>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">value: 012</blockquote>
+<p>The Ruby YAML library interprets the 012 as octal, as it would in Ruby source code (and as Perl would do). To have this interpreted as string, you must quote the value.</p>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">value: &#8220;012&#8221;</blockquote>
+<p>In case you didn&#8217;t know, any number starting with a leading zero in C, Ruby, Perl, or Python, is assumed to be octal. &#8220;Of course!&#8221;, you say, &#8220;Everyone thinks and codes in octal&#8221;. The only time I use octal is using the unix permissions on the &#8220;chmod&#8221; command&#8212;but now there are modern alternatives to that.</p>
+<p>Hexadecimal numbers start with &#8220;0x&#8221; such as &#8220;0x12&#8221;. That is not a hard mistake to find as its not a valid integer. But innocent leading-zero numbers can cause syntax errors if the number contains a 9 (non-octal digit) such as &#8220;09&#8221;, or even floating point numbers  like &#8220;012.345&#8221;.</p>
+<p>You can test this in &#8220;irb&#8221;&#8230;</p>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">$ irb<br />&#187; 07<br />=&gt; 7<br />&#187; 012<br />=&gt; 10<br />&#187; 0x12<br />=&gt; 18</blockquote>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">&#187; 019<br />SyntaxError: compile error&#8230;</blockquote>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">&#187; 012.345</blockquote>
+<blockquote style="margin: 0 0 0 40px; border: none; padding: 0px;">SyntaxError: compile error&#8230;</blockquote>
+<p>So this is error-prone and annoying in these languages.</p>
+<p>As it turns out, this behavior is part of the YAML specification, but I do not like it!  I doubt many people expect that behavior. Data encoding should not take these &#8220;short cuts&#8221;, as YAML files can be created by non-programmers who have never heard of octal and expect a leading-zero to be harmless.</p>
+<p>I&#8217;m finding the rule of thumb in YAML is to use quoted values when possible.</p>

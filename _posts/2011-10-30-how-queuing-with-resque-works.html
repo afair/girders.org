@@ -1,0 +1,181 @@
+--- 
+layout: post
+title: How Queuing with Resque works
+published: true
+author: Allen Fair
+header-img: images/transfer.jpg
+---
+
+
+<p><a href="https://github.com/defunkt/resque">Resque</a> is a fast, lightweight, and powerful message queuing system used to run Ruby jobs asynchronously (or in the background) from your on-line software for scalability and response. I needed to integrate software written in different languages and environments for processing, and this is my understanding of the implementation.</p>
+
+<!--more-->
+
+<h2>How Queuing with Redis works</h2>
+
+<p>Resque&rsquo;s real power comes with the <a href="http://redis.io/">Redis</a> &ldquo;NoSQL&rdquo; Key-Value store. While most other Key-Value stores use strings as keys and values, Redis can use hashes, lists, set, and sorted sets as values, and operate on them atomically. Resque leans on the Redis list datatype, with each queue name as a key, and a list as the value.</p>
+
+<p>Jobs are en-queued (the Redis RPUSH command to push onto the right side of the list) on the list, and workers de-queue a job (LPOP to pop off the left side of the list) to process it. As these operations are atomic, queuers and workers do not have to worry about locking and synchronizing access. Data structures are not nested in Redis, and each element of the list (or set, hash, etc.) must be a string.</p>
+
+<p>Redis is a very fast, in-memory dataset, and can persist to disk (configurable by time or number of operations), or save operations to a log file for recovery after a re-start, and supports master-slave replication.</p>
+
+<p>Redis does not use SQL to inspect its data, instead having its own <a href="http://redis.io/commands">command set</a> to read and process the keys. It provides a command-line interface, <code>redis-cli</code>, to interactively view and manipulate the dataset. Here is a simple way to operate on a list in the CLI:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>$ redis-cli
+redis&gt; rpush mylist &quot;hello, redis&quot;  # &lt;= Adds the value to the right side of the list/queue
+(integer) 1
+
+redis&gt; keys mylist*                 # &lt;= Returns the matching key names
+1) &quot;mylist&quot;
+
+redis&gt; type mylist                  # &lt;= Returns the datatype of the value of this key
+list
+
+redis&gt; lrange mylist 0 10           # &lt;= Returns a elements 0 through 10 from the list/queue
+1) &quot;hello, redis&quot;
+
+redis&gt; llen mylist                  # &lt;= Returns the number of elements in the list/queue
+(integer) 1
+
+redis&gt; lpop mylist                  # &lt;= Pops the leftmost element from the list/queue
+&quot;hello, redis&quot;
+
+redis&gt; lrange mylist 0 10
+(empty list or set)</pre></div>
+</div>
+
+
+<h2>How Queuing with Resque works</h2>
+
+<p>Resque stores a job queue in a redis list named &ldquo;resque:queue:name&rdquo;, and each element is the list is a hash serialized as a <a href="http://en.wikipedia.org/wiki/Json">JSON</a> string. Redis also has its own management structures, including a &ldquo;failed&rdquo; job list.</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>$ redis-cli
+redis&gt; keys * 
+1) &quot;resque:stat:processed&quot;          # &lt;= Number of jobss successfully processed
+2) &quot;resque:failed&quot;                  # &lt;= This is the failed job list (not a queue)
+3) &quot;resque:queue:myqueue&quot;           # &lt;= This is your work queue!
+4) &quot;resque:queues&quot;                  # &lt;= The &quot;Set&quot; of work queues
+5) &quot;resque:stat:failed&quot;             # &lt;= The number of failed jobs
+6) &quot;resque:workers&quot;                 # &lt;= Set of workers
+7) &quot;resque:worker:host.example.com:79163:myqueue:started&quot; # &lt;= Count of jobs processed by worker
+8) &quot;resque:processed:host.example.com:79163:myqueue:started&quot; # &lt;= Timestamp of worker start
+
+redis&gt; get resque:stat:processed    # &lt;= Returns the count of processed jobs 
+&quot;9&quot;
+
+redis&gt; smembers resque:queues       # &lt;= Prints the members of the set of queues
+1) &quot;myqueue&quot;
+
+redis&gt; smembers resque:workers      # &lt;= Prints the set of workers
+1) &quot;host.example.com:79163:myqueue&quot;</pre></div>
+</div>
+
+
+<p>Resque namespaces its data within redis with the &ldquo;resque:&rdquo; prefix, so it can be shared with other users.</p>
+
+<p>Designed to work with Ruby on Rails, Resque jobs are submitted and processed like the following boilerplate:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre><span class="keyword">class</span> <span class="class">MyModel</span>
+  <span class="instance-variable">@queue</span> = <span class="symbol">:myqueue</span>                 <span class="comment"># &lt;= jobs will be placed in this queue name</span>
+
+  <span class="comment"># call to queue processing in Resque until later</span>
+  <span class="keyword">def</span> <span class="function">defer</span>(*args)
+     <span class="constant">Resque</span>.enqueue(<span class="constant">MyModel</span>, <span class="predefined-constant">self</span>.id, *args)
+  <span class="keyword">end</span>
+
+  <span class="comment"># Resque calls this method with the additional arguments. Must be named #process</span>
+  <span class="keyword">def</span> <span class="predefined-constant">self</span>.<span class="function">process</span>(id,*args)
+    model = <span class="constant">MyModel</span>.find(id)
+    <span class="comment"># Do something here, raise an exception to send job to failure list</span>
+    raise <span class="string"><span class="delimiter">&quot;</span><span class="content">Oh Noes!</span><span class="delimiter">&quot;</span></span> <span class="keyword">if</span> failed?
+  <span class="keyword">end</span>
+<span class="keyword">end</span></pre></div>
+</div>
+
+
+<p>This does not serialize an object to the queue, instead it saved the (ActiveRecord) model name and record id which is re-instantiated from the database later. The additional arguments are saved in an array to call later. To keep the operation light, do not pass a lot of data to the job. Instead pass references to other records, files, etc.</p>
+
+<p>Each job in Resque is a hash serialized as a JSON string (remember data structures can not be nested in Redis) of the format:</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>{<span class="key"><span class="delimiter">&quot;</span><span class="content">class</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">MyModel</span><span class="delimiter">&quot;</span></span>, <span class="key"><span class="delimiter">&quot;</span><span class="content">args</span><span class="delimiter">&quot;</span></span>:[<span class="integer">123</span>, <span class="string"><span class="delimiter">&quot;</span><span class="content">arg1</span><span class="delimiter">&quot;</span></span>, <span class="string"><span class="delimiter">&quot;</span><span class="content">arg2</span><span class="delimiter">&quot;</span></span>, <span class="error">.</span><span class="error">.</span><span class="error">.</span>]}</pre></div>
+</div>
+
+
+<p>When the job is popped from the queue, Resque instantiates the ActiveRecord object and calls its <code>process</code> method, passing the additional parameters. Functionally, the worker code behaves something like this (simplified):</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>klass, args = <span class="constant">Rescue</span>.reserve(queue_name)
+model = klass.process(*args)</pre></div>
+</div>
+
+
+<p>If processing raises an exception, the job and relevant information is placed on the failed list of the JSON format (as a string):</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>{ <span class="key"><span class="delimiter">&quot;</span><span class="content">failed_at</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">2011/08/22 15:55:16 EDT</span><span class="delimiter">&quot;</span></span>,
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">payload</span><span class="delimiter">&quot;</span></span>:{<span class="key"><span class="delimiter">&quot;</span><span class="content">class</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">MyModel</span><span class="delimiter">&quot;</span></span>,<span class="key"><span class="delimiter">&quot;</span><span class="content">args</span><span class="delimiter">&quot;</span></span>:[<span class="integer">123</span>,<span class="string"><span class="delimiter">&quot;</span><span class="content">arg1</span><span class="delimiter">&quot;</span></span>,<span class="string"><span class="delimiter">&quot;</span><span class="content">arg2</span><span class="delimiter">&quot;</span></span>]},
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">exception</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">NameError</span><span class="delimiter">&quot;</span></span>,
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">error</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">uninitialized constant SalsaJob</span><span class="delimiter">&quot;</span></span>,
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">backtrace</span><span class="delimiter">&quot;</span></span>:[<span class="error">.</span><span class="error">.</span><span class="error">.</span>],
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">worker</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">host.example.com:56870:myqueue</span><span class="delimiter">&quot;</span></span>,
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">queue</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">myqueue</span><span class="delimiter">&quot;</span></span>,
+  <span class="key"><span class="delimiter">&quot;</span><span class="content">retried_at</span><span class="delimiter">&quot;</span></span>:<span class="string"><span class="delimiter">&quot;</span><span class="content">2011/08/22 16:07:50</span><span class="delimiter">&quot;</span></span> }</pre></div>
+</div>
+
+
+<p>A failed job can be retried (only once though) through the web interface started with the <code>resque-web</code> command.</p>
+
+<h2>Using Resque without Rails</h2>
+
+<p>Resque runs out of the box on Ruby on Rails. If you have a ruby application not in Rails, you can still run the Resque workers with the <code>rake</code> command by adding</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>require <span class="string"><span class="delimiter">'</span><span class="content">resque/tasks</span><span class="delimiter">'</span></span></pre></div>
+</div>
+
+
+<p>to your Rakefile.</p>
+
+<h2>Calling external systems with Resque</h2>
+
+<p>There are ports of Resque to <a href="https://github.com/defunkt/resque/wiki/alternate-implementations">other languages</a> such as python, C, Java, .NET, node, PHP and Clojure. If your external system is written in one of these languages, then you can start workers listening to their queues. Since you are not talking to a ruby class with arguments, you can set up a placeholder class with the proper queue name. This will allow Resque plugins to fire on enqueue. (I assume the other libraries work the same way as the original, though some of the languages are not object-oriented&mdash;I have not verified them.)</p>
+
+<div class="CodeRay">
+  <div class="code"><pre><span class="keyword">class</span> <span class="class">ExternalClass</span>
+  <span class="instance-variable">@queue</span> = <span class="symbol">:external_class</span>
+<span class="keyword">end</span>
+
+<span class="constant">Rescue</span>.enqueue(<span class="constant">ExternalClass</span>, *args)</pre></div>
+</div>
+
+
+<p>That class does not have to implement process() since that will be called in the real class.</p>
+
+<p>If you need to call an external system to perform the task, either that system can be written to accept Resque-style queuing requests (hash of &ldquo;class&rdquo; and &ldquo;args&rdquo;), or you can push the expeted format directly to the queue</p>
+
+<div class="CodeRay">
+  <div class="code"><pre><span class="constant">Resque</span>.redis.rpush(<span class="string"><span class="delimiter">&quot;</span><span class="content">queue:</span><span class="inline"><span class="inline-delimiter">#{</span>queue_name<span class="inline-delimiter">}</span></span><span class="delimiter">&quot;</span></span>, args.to_json)</pre></div>
+</div>
+
+
+<p>The format does not have to be json, but has to be a string of a format the external system expects. You can not use the Resque workers</p>
+
+<h2>Calling the Ruby Resque from an external system</h2>
+
+<p>Maybe your external system needs to trigger a job to run on your Ruby Resque system, but can does not have a Resque implementation. You can drop your work (as a JSON hash of &ldquo;class&rdquo; and &ldquo;args&rdquo;) on the raw Redis list/queue yourself from the Redis library or the command line</p>
+
+<div class="CodeRay">
+  <div class="code"><pre>redis-cli rpush &quot;resque:queue:myqueue&quot; '{&quot;class&quot;:&quot;MyModel&quot;,&quot;args&quot;:[&quot;arg1&quot;]}'</pre></div>
+</div>
+
+
+<h2>Epilogue</h2>
+
+<p>I am new to Redis and Resque and wanted to dig into the Redis data structures used by Resque, and learned it more in depth while writing this. After understanding how it all fits together, I can now write some integration code!  I hope you found this useful, and not too incorrect.</p>
+                        </p>
+
+
