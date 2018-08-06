@@ -15,7 +15,7 @@ Also, I needed a dependency-free approach that didn't use special PHP libraries
 or extensions (like [cURL](http://php.net/manual/fa/book.curl.php))
 and still supports older versions of PHP that exist in the wild.
 
-## Read an URL
+## GET Requests (Read by URL)
 
 PHP hid it's feature to download a page from the web in the
 [file_get_contents()]() function, which makes discovery hard.
@@ -121,6 +121,12 @@ We can add each cookie header as follows with whatever name and value you have.
 
     $headers[] = "Cookie: apikey=$apikey";
 
+Encoding of cookie strings is not well defined.
+Use the values returned previously from the remote server if available as they
+are in the format (url-encoded, Base64, etc) and character set expected to receive.
+Simple ASCII strings like the apikey example should work as expected.
+
+
 ### User-Agent
 
 We should identify what service is making the request -- our program and version.
@@ -128,6 +134,15 @@ We don't need a special header for this! We can set this up the `stream_context_
 arguments, right alongside the "method" parameter:
 
     'user_agent' => "My App/v1.0"
+
+Of course, we can always create the header ourselves:
+
+    $headers[] = "User-Agent: My App/v1.0";
+
+The [user agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent)
+string is of the format
+
+    User-Agent: <product> / <product-version> <comment>
 
 ### Building headers
 
@@ -261,7 +276,7 @@ function makes a HEAD method request with returns only headers without a body.
 The $format argument should be zero to return a list of headers, or non-zero to
 return an associative array of header names to values.
 
-### Callbacks
+## Callbacks
 
 PHP offers a request callback, when fires at each event in processing your request.
 Generally, you won't need it, but it is great for tracking progress of receiving
@@ -277,8 +292,8 @@ passing a "callable" function with the signature matching
 
     function my_notification_callback($notification_code, $severity, $message,
                                            $message_code, $bytes_transferred, $bytes_max) {
-      global $biglist_http_state;
-      $biglist_http_state = array($notification_code, $severity, $message,
+      global $_http_state;
+      $_http_state = array($notification_code, $severity, $message,
         $message_code, $bytes_transferred, $bytes_max);
     }
 
