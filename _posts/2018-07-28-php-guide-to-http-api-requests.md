@@ -112,6 +112,16 @@ and if so, may very version to version:
 
     https://user:password@example.com/
 
+If you have a token, usually from [Oauth2](https://oauth.net/2/)
+or a [JSON Web Token](https://jwt.io/) or JWT passed after login,
+The "Bearer" format of the header is used:
+
+    Authorization: Bearer 1bc24312976e67402a1a8aac4b3257e48d6d1a53f94de548afe945dfeccbb94e
+
+and can be added to your headers as:
+
+    $headers[] = "Authorization: Bearer $token";
+
 ### Cookies
 
 Usually, we don't need cookies for API requests, but some services use it to
@@ -123,7 +133,7 @@ We can add each cookie header as follows with whatever name and value you have.
 
 Encoding of cookie strings is not well defined.
 Use the values returned previously from the remote server if available as they
-are in the format (url-encoded, Base64, etc) and character set expected to receive.
+are in the format (url-encoded, Base64, etc) and character set expected to be received.
 Simple ASCII strings like the apikey example should work as expected.
 
 
@@ -268,6 +278,45 @@ detected. Sometimes a useful error message is in that content.
            'timeout' => 10.0,
            'ignore_errors' => true,
            ));
+
+### Receiving Files
+
+Receiving files from a remote API request was out of the scope of this post, but is discussed here for completeness.
+
+The [Content-Disposition](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Disposition)
+header is normally set to "inline" for standard pages and responses.
+
+    Content-Disposition: inline
+
+When a file is returned, it is set to "attachment." For web browsers, this usually triggers a "Save as"
+dialog unless configured to store it in your default download folder.
+The API client would need to identify the attachment and save to to a pre-determined location.
+
+    HTTP/1.1 200 OK
+    Content-Type: text/csv; charset=utf-8
+    Content-Disposition: attachment; filename="data.csv"
+    Content-Length: 123
+
+    <File Contents>
+
+Additionally, complex results can send "multipart" responses with multiple attachments.
+For this case, it is best to use a MIME parsing library.
+
+    HTTP/1.1 200 OK
+    Content-Length: 10215
+    Content-Type: multipart/mixed; boundary="boundary";
+
+    --boundary
+    Content-Type: text/csv; charset=utf-8
+    Content-Disposition: attachment; filename="data1.csv"
+
+    <File Contents>
+    --boundary
+    Content-Type: text/csv; charset=utf-8
+    Content-Disposition: attachment; filename="data2.csv"
+
+    <File Contents>
+    --boundary--
 
 ## HEAD Request
 
