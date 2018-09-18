@@ -163,8 +163,8 @@ So we set up our context options like this:
     $opt = array('http'=>array(
            'method' => 'POST',
            'user_agent' => "My App/v1.0",
-           'headers => implode("\r\n", $headers),
-           'content => http_build_query($q)
+           'headers' => implode("\r\n", $headers),
+           'content' => http_build_query($q)
            ));
 
 ## Sending Files
@@ -241,17 +241,27 @@ way to chunk out the data using this method.
 ## Responses and Errors
 
 `file_get_contents()` returns the body of the response after processing.
-On an error, it returns FALSE. (When testing for FALSE in PHP,
-remember to use the `===` or "three-qual" operator.)
-Also, to quiet the errors, call it with the special "@" PHP prefix.
+
+On an error, it returns FALSE. When testing for FALSE in PHP,
+remember to use the `===` or "three-qual" operator.
+Unfortunately, is also swallows the page, so if a detailed error
+message is on the body of the page--which is a proper response--there
+is no way to see it.
+
+To quiet the errors, call it with the special "@" PHP prefix.
+FALSE seems to be returned when there was no connection or response from the web server.
+For connection errors, you need to call
+[error_get_last()](http://php.net/manual/en/function.error-get-last.php)
+after the operation.
 
     $url     = "https://www.google.com/"
     $q       = array("q"=>"PHP HTTP request");
     $opt     = array(...);
     $context = stream_context_create($opt);
     $result  = @file_get_contents($url, false, $context);
-    if ($page === FALSE) {
-      // Handle it!
+    if ($result === FALSE) {
+      $last_err = error_get_last();
+      echo $last_err['message'];
     }
 
 The response headers are in a special local variable, `$http_response_header`.
@@ -278,6 +288,17 @@ detected. Sometimes a useful error message is in that content.
            'timeout' => 10.0,
            'ignore_errors' => true,
            ));
+
+### Receiving Cookies
+
+When a web server returns a cookie to be resent on subsequent request it will send a
+[Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
+response header for each cookie.
+
+    Set-Cookie: sessionid=38afes7a8; HttpOnly; Path=/
+
+Since API's don't use cookie-based sessions, I won't cover it here, but the Set-Cookie
+documentation shows the various directives to process one.
 
 ### Receiving Files
 
