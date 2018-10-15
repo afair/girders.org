@@ -1,19 +1,24 @@
 ---
 layout: post
-title: PHP Guide to Making HTTP API Requests
+title: PHP Guide to Making HTTP Requests
 date: 2018-07-28 08:51
 comments: true
 categories: PHP
 published: true
 ---
 
+This guide shows you how to make low-level HTTP requests with the
+core PHP library only, no dependencies such as extensions and libraries
+(like [cURL](http://php.net/manual/fa/book.curl.php)),
+that also works with older versions of PHP that exist in the wild.
+
+For this guide, the use case is building a PHP API client for my SASS.
+It shouldn't require changes to the user's PHP runtime or additional dependencies to work.
+
 For a web-focused language, PHP doesn't make it easy or obvious how to call out
 over to other servers to make API requests. I compiled all the information I found
 into this post, a resource I wish I had yesterday when writing an API client.
 
-Also, I needed a dependency-free approach that didn't use special PHP libraries
-or extensions (like [cURL](http://php.net/manual/fa/book.curl.php))
-and still supports older versions of PHP that exist in the wild.
 
 ## GET Requests (Read by URL)
 
@@ -88,16 +93,27 @@ header to tell the remote web server what we want.
 
     $headers[] = "Accept: application/json";
 
-### Authorization
+### Authenticating
 
-Also, we have an Api Key given to us by that service for identification.
+Note: *Authentication* provides credentials to verify your identity.
+You do this by providing an API Key, Access Token, or a standard user/password.
+*Authorization* controls your access to a see or modify a resource.
+This is usually controlled by the application using your user privilege and role.
+However, HTTP uses the "Authorization" header to authenticate your credentials,
+which can be confusing or misleading.
+
+Assume we have an API Key given to us by a service for identification.
 There are different ways to pass your key to the service, though the most
 useful is using [HTTP Basic Authentication](https://en.wikipedia.org/wiki/Basic_access_authentication).
 
 PHP decodes incoming Basic Auth headers into `$_SERVER['PHP_AUTH_USER']` and `$_SERVER['PHP_AUTH_PW']`
 but does not provide a feature to send our own, but it's easy enough to roll.
 The string "username:password" (no quotes) is Base64 encoded to prevent characters
-from disturbing the HTTP header protocol. For an API key, we format with an empty password,
+from disturbing the HTTP header protocol.
+
+    $headers[] = "Authorization: Basic ".base64_encode("$user:$password");
+
+Usually for an API key, we format with an empty password,
 so really just appending the colon after the key: "apikey:"
 
     $headers[] = "Authorization: Basic ".base64_encode($apikey.":");
@@ -143,11 +159,11 @@ We should identify what service is making the request -- our program and version
 We don't need a special header for this! We can set this up the `stream_context_create()`
 arguments, right alongside the "method" parameter:
 
-    'user_agent' => "My App/v1.0"
+    'user_agent' => "My App/1.0"
 
 Of course, we can always create the header ourselves:
 
-    $headers[] = "User-Agent: My App/v1.0";
+    $headers[] = "User-Agent: My App/1.0";
 
 The [user agent](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/User-Agent)
 string is of the format
@@ -162,7 +178,7 @@ So we set up our context options like this:
 
     $opt = array('http'=>array(
            'method' => 'POST',
-           'user_agent' => "My App/v1.0",
+           'user_agent' => "My App/1.0",
            'headers' => implode("\r\n", $headers),
            'content' => http_build_query($q)
            ));
@@ -230,7 +246,7 @@ Then we set the HTTP context like this:
 
     $opt = array('http'=>array(
            'method' => 'POST',
-           'user_agent' => "My App/v1.0",
+           'user_agent' => "My App/1.0",
            'headers' => implode("\r\n", $headers),
            'content' => $body
            ));
@@ -244,7 +260,7 @@ way to chunk out the data using this method.
 
 On an error, it returns FALSE. When testing for FALSE in PHP,
 remember to use the `===` or "three-qual" operator.
-Unfortunately, is also swallows the page, so if a detailed error
+Unfortunately, is also swallows the response data, so if a detailed error
 message is on the body of the page--which is a proper response--there
 is no way to see it.
 
